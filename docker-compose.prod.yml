@@ -1,13 +1,20 @@
-# Прод за существующим Traefik на сервере (80/443 уже у traefik).
-# Домен: https://app.legaltech-radar.tech
+# Прод рядом с уже живущими сервисами (Hermes, legaltech-radar, Traefik).
+# Не трогает чужие контейнеры/сети/порты: только Host(app.legaltech-radar.tech).
 #
-#   cp deploy/.env.prod.example .env.prod
-#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+#   docker compose -p technonicol-ai -f docker-compose.prod.yml --env-file .env.prod up -d --build
+#
+# Имя проекта (-p technonicol-ai) важно — не пересечься с hermes-agent-htrr / legaltech-radar.
+
+name: technonicol-ai
 
 services:
   db:
     image: postgres:16-alpine
+    container_name: technonicol-ai-db
     restart: unless-stopped
+    # Только localhost хоста — чужим стекам не светим
+    ports:
+      - "127.0.0.1:5436:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-technonicol}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
@@ -20,10 +27,11 @@ services:
       timeout: 5s
       retries: 10
     networks:
-      - internal
+      - tn_net
 
   backend:
     build: ./backend
+    container_name: technonicol-ai-backend
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-technonicol}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-technonicol}
@@ -38,55 +46,54 @@ services:
       db:
         condition: service_healthy
     networks:
-      - internal
-      - proxy
+      - tn_net
     labels:
       - traefik.enable=true
-      - traefik.docker.network=proxy
-      - traefik.http.routers.tn-api.rule=Host(`app.legaltech-radar.tech`) && PathPrefix(`/api`)
-      - traefik.http.routers.tn-api.entrypoints=websecure
-      - traefik.http.routers.tn-api.tls=true
-      - traefik.http.routers.tn-api.tls.certresolver=le
-      - traefik.http.routers.tn-api.priority=100
-      - traefik.http.services.tn-api.loadbalancer.server.port=8000
-      # HTTP → HTTPS
-      - traefik.http.routers.tn-api-http.rule=Host(`app.legaltech-radar.tech`) && PathPrefix(`/api`)
-      - traefik.http.routers.tn-api-http.entrypoints=web
-      - traefik.http.routers.tn-api-http.middlewares=tn-https-redirect
-      - traefik.http.routers.tn-api-http.priority=100
-      - traefik.http.middlewares.tn-https-redirect.redirectscheme.scheme=https
+      - traefik.docker.network=technonicol-ai_tn_net
+      - traefik.http.routers.technonicol-api.rule=Host(`app.legaltech-radar.tech`) && PathPrefix(`/api`)
+      - traefik.http.routers.technonicol-api.entrypoints=websecure
+      - traefik.http.routers.technonicol-api.tls=true
+      - traefik.http.routers.technonicol-api.tls.certresolver=${TRAEFIK_CERTRESOLVER:-le}
+      - traefik.http.routers.technonicol-api.priority=100
+      - traefik.http.services.technonicol-api.loadbalancer.server.port=8000
+      - traefik.http.routers.technonicol-api-http.rule=Host(`app.legaltech-radar.tech`) && PathPrefix(`/api`)
+      - traefik.http.routers.technonicol-api-http.entrypoints=web
+      - traefik.http.routers.technonicol-api-http.middlewares=technonicol-https-redirect
+      - traefik.http.routers.technonicol-api-http.priority=100
+      - traefik.http.middlewares.technonicol-https-redirect.redirectscheme.scheme=https
 
   frontend:
     build:
       context: ./frontend
       args:
         NEXT_PUBLIC_API_URL: https://app.legaltech-radar.tech
+    container_name: technonicol-ai-frontend
     restart: unless-stopped
     depends_on:
       - backend
     networks:
-      - internal
-      - proxy
+      - tn_net
     labels:
       - traefik.enable=true
-      - traefik.docker.network=proxy
-      - traefik.http.routers.tn-web.rule=Host(`app.legaltech-radar.tech`)
-      - traefik.http.routers.tn-web.entrypoints=websecure
-      - traefik.http.routers.tn-web.tls=true
-      - traefik.http.routers.tn-web.tls.certresolver=le
-      - traefik.http.routers.tn-web.priority=1
-      - traefik.http.services.tn-web.loadbalancer.server.port=3000
-      - traefik.http.routers.tn-web-http.rule=Host(`app.legaltech-radar.tech`)
-      - traefik.http.routers.tn-web-http.entrypoints=web
-      - traefik.http.routers.tn-web-http.middlewares=tn-https-redirect
-      - traefik.http.routers.tn-web-http.priority=1
+      - traefik.docker.network=technonicol-ai_tn_net
+      - traefik.http.routers.technonicol-web.rule=Host(`app.legaltech-radar.tech`)
+      - traefik.http.routers.technonicol-web.entrypoints=websecure
+      - traefik.http.routers.technonicol-web.tls=true
+      - traefik.http.routers.technonicol-web.tls.certresolver=${TRAEFIK_CERTRESOLVER:-le}
+      - traefik.http.routers.technonicol-web.priority=1
+      - traefik.http.services.technonicol-web.loadbalancer.server.port=3000
+      - traefik.http.routers.technonicol-web-http.rule=Host(`app.legaltech-radar.tech`)
+      - traefik.http.routers.technonicol-web-http.entrypoints=web
+      - traefik.http.routers.technonicol-web-http.middlewares=technonicol-https-redirect
+      - traefik.http.routers.technonicol-web-http.priority=1
 
 volumes:
   tn_pgdata:
+    name: technonicol-ai_pgdata
   tn_uploads:
+    name: technonicol-ai_uploads
 
 networks:
-  internal:
-  proxy:
-    external: true
-    name: ${TRAEFIK_NETWORK:-proxy}
+  tn_net:
+    name: technonicol-ai_tn_net
+    driver: bridge
