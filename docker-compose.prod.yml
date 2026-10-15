@@ -1,9 +1,7 @@
-# Прод: https://app.legaltech-radar.tech
-# Caddy сам выпускает Let's Encrypt при старте (нужны открытые 80/443).
+# Прод за существующим Traefik на сервере (80/443 уже у traefik).
+# Домен: https://app.legaltech-radar.tech
 #
-# Запуск на сервере:
-#   git clone … && cd …
-#   cp deploy/.env.prod.example .env.prod   # заполнить секреты
+#   cp deploy/.env.prod.example .env.prod
 #   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
 
 services:
@@ -21,6 +19,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    networks:
+      - internal
 
   backend:
     build: ./backend
@@ -37,33 +37,56 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    networks:
+      - internal
+      - proxy
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+      - traefik.http.routers.tn-api.rule=Host(`app.legaltech-radar.tech`) && PathPrefix(`/api`)
+      - traefik.http.routers.tn-api.entrypoints=websecure
+      - traefik.http.routers.tn-api.tls=true
+      - traefik.http.routers.tn-api.tls.certresolver=le
+      - traefik.http.routers.tn-api.priority=100
+      - traefik.http.services.tn-api.loadbalancer.server.port=8000
+      # HTTP → HTTPS
+      - traefik.http.routers.tn-api-http.rule=Host(`app.legaltech-radar.tech`) && PathPrefix(`/api`)
+      - traefik.http.routers.tn-api-http.entrypoints=web
+      - traefik.http.routers.tn-api-http.middlewares=tn-https-redirect
+      - traefik.http.routers.tn-api-http.priority=100
+      - traefik.http.middlewares.tn-https-redirect.redirectscheme.scheme=https
 
   frontend:
     build:
       context: ./frontend
       args:
-        # Браузер ходит на тот же хост; /api проксирует Caddy
         NEXT_PUBLIC_API_URL: https://app.legaltech-radar.tech
     restart: unless-stopped
     depends_on:
       - backend
-
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - tn_caddy_data:/data
-      - tn_caddy_config:/config
-    depends_on:
-      - frontend
-      - backend
+    networks:
+      - internal
+      - proxy
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+      - traefik.http.routers.tn-web.rule=Host(`app.legaltech-radar.tech`)
+      - traefik.http.routers.tn-web.entrypoints=websecure
+      - traefik.http.routers.tn-web.tls=true
+      - traefik.http.routers.tn-web.tls.certresolver=le
+      - traefik.http.routers.tn-web.priority=1
+      - traefik.http.services.tn-web.loadbalancer.server.port=3000
+      - traefik.http.routers.tn-web-http.rule=Host(`app.legaltech-radar.tech`)
+      - traefik.http.routers.tn-web-http.entrypoints=web
+      - traefik.http.routers.tn-web-http.middlewares=tn-https-redirect
+      - traefik.http.routers.tn-web-http.priority=1
 
 volumes:
   tn_pgdata:
   tn_uploads:
-  tn_caddy_data:
-  tn_caddy_config:
+
+networks:
+  internal:
+  proxy:
+    external: true
+    name: ${TRAEFIK_NETWORK:-proxy}
