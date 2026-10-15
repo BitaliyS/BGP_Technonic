@@ -53,7 +53,7 @@ services:
       - traefik.http.routers.technonicol-api.rule=Host(`app.legaltech-radar.tech`) && PathPrefix(`/api`)
       - traefik.http.routers.technonicol-api.entrypoints=websecure
       - traefik.http.routers.technonicol-api.tls=true
-      - traefik.http.routers.technonicol-api.tls.certresolver=${TRAEFIK_CERTRESOLVER:-le}
+      - traefik.http.routers.technonicol-api.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}
       - traefik.http.routers.technonicol-api.priority=100
       - traefik.http.services.technonicol-api.loadbalancer.server.port=8000
       - traefik.http.routers.technonicol-api-http.rule=Host(`app.legaltech-radar.tech`) && PathPrefix(`/api`)
@@ -79,7 +79,7 @@ services:
       - traefik.http.routers.technonicol-web.rule=Host(`app.legaltech-radar.tech`)
       - traefik.http.routers.technonicol-web.entrypoints=websecure
       - traefik.http.routers.technonicol-web.tls=true
-      - traefik.http.routers.technonicol-web.tls.certresolver=${TRAEFIK_CERTRESOLVER:-le}
+      - traefik.http.routers.technonicol-web.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}
       - traefik.http.routers.technonicol-web.priority=1
       - traefik.http.services.technonicol-web.loadbalancer.server.port=3000
       - traefik.http.routers.technonicol-web-http.rule=Host(`app.legaltech-radar.tech`)
