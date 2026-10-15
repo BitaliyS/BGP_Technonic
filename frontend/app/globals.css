@@ -1,0 +1,102 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --tn-red: #c8102e;
+  --tn-red-soft: #e85a6b;
+  --tn-ink: #1a1a1a;
+  --tn-muted: #6b6b6b;
+  --tn-surface: #f7f5f4;
+  --tn-panel: #ffffff;
+  --tn-border: #e6e0de;
+  --tn-accent: #8b1a2b;
+  --font-display: "Source Serif 4", Georgia, serif;
+  --font-sans: "Manrope", system-ui, sans-serif;
+}
+
+.dark {
+  --tn-red: #e23b4f;
+  --tn-red-soft: #9a3040;
+  --tn-ink: #ece8e6;
+  --tn-muted: #a39a97;
+  --tn-surface: #1c1918;
+  --tn-panel: #262220;
+  --tn-border: #3a3432;
+  --tn-accent: #ff6b7a;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--tn-surface);
+  color: var(--tn-ink);
+  font-family: var(--font-sans);
+}
+
+.tn-finding {
+  background: color-mix(in srgb, var(--tn-red) 28%, transparent);
+  border-bottom: 2px solid var(--tn-red);
+  cursor: pointer;
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+.dark .tn-finding {
+  background: color-mix(in srgb, var(--tn-red) 40%, transparent);
+}
+
+.claude-input {
+  background: var(--tn-panel);
+  border: 1px solid var(--tn-border);
+  border-radius: 1.25rem;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.04);
+}
+
+.ProseMirror {
+  outline: none;
+  min-height: 60vh;
+  line-height: 1.65;
+}
+
+.ProseMirror p {
+  margin: 0.6em 0;
+}
+
+.ProseMirror h2 {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  margin-top: 1.2em;
+}
+
+@keyframes tn-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tn-fade-up {
+  animation: tn-fade-up 0.35s ease-out both;
+}
+
+@keyframes tn-pulse-soft {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.tn-streaming {
+  animation: tn-pulse-soft 1.2s ease-in-out infinite;
+}

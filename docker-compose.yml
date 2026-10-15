@@ -1,0 +1,40 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: technonicol
+      POSTGRES_PASSWORD: technonicol
+      POSTGRES_DB: technonicol
+    ports:
+      - "5433:5432"
+    volumes:
+      - tn_pgdata:/var/lib/postgresql/data
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://technonicol:technonicol@db:5432/technonicol
+      JWT_SECRET: technonicol-dev-secret-change-me
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      - ./backend:/app
+      - ./data/uploads:/data/uploads
+    depends_on:
+      - db
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+
+volumes:
+  tn_pgdata:

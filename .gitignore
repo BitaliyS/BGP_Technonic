@@ -1,0 +1,16 @@
+node_modules/
+.next/
+.venv/
+__pycache__/
+*.pyc
+*.db
+.env
+.env.prod
+.env*.local
+data/uploads/*
+!data/uploads/.gitkeep
+.DS_Store
+dist/
+*.egg-info/
+backend/technonicol.db
+*.log
