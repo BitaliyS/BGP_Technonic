@@ -42,28 +42,26 @@ def _ensure_sqlite_columns(sync_conn) -> None:
         pass
 
 
-def _drop_stale_pg_enums(sync_conn) -> None:
-    """Убирает старый PG ENUM user_role, если остался от прошлых миграций."""
-    try:
-        sync_conn.exec_driver_sql("DROP TYPE IF EXISTS user_role CASCADE")
-    except Exception:
-        pass
-
-
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     db_url = settings.database_url
     safe = db_url.split("@")[-1] if "@" in db_url else db_url
+    is_pg = db_url.startswith("postgresql")
     logger.info("DB init → %s | metadata tables=%s", safe, list(Base.metadata.tables))
 
-    is_pg = settings.database_url.startswith("postgresql")
+    # Отдельные транзакции: ошибка DDL не должна травить seed
     async with engine.begin() as conn:
         if is_pg:
-            await conn.run_sync(_drop_stale_pg_enums)
+            await conn.execute(text("DROP TYPE IF EXISTS user_role CASCADE"))
         await conn.run_sync(Base.metadata.create_all)
-        await conn.run_sync(_ensure_sqlite_columns)
-        if is_pg:
-            existing = (
+
+    if not is_pg:
+        async with engine.begin() as conn:
+            await conn.run_sync(_ensure_sqlite_columns)
+
+    if is_pg:
+        async with engine.connect() as conn:
+            rows = (
                 await conn.execute(
                     text(
                         "SELECT tablename FROM pg_catalog.pg_tables "
@@ -71,7 +69,7 @@ async def lifespan(_: FastAPI):
                     )
                 )
             ).fetchall()
-            tables = [r[0] for r in existing]
+            tables = [r[0] for r in rows]
             logger.info("Postgres public tables: %s", tables)
             if "users" not in tables:
                 raise RuntimeError(
