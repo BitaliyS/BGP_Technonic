@@ -34,6 +34,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
 export function useTheme() {
   const ctx = useContext(ThemeCtx);
-  if (!ctx) throw new Error("useTheme outside provider");
+  if (!ctx) {
+    return { theme: "light" as Theme, toggle: () => {} };
+  }
   return ctx;
 }

@@ -19,6 +19,9 @@ export const metadata: Metadata = {
   description: "ИИ-проверка договоров Технониколь",
 };
 
+// Auth/theme — клиентские провайдеры; без static prerender на билде
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ru" suppressHydrationWarning>

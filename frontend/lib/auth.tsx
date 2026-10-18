@@ -68,6 +68,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuth() {
   const ctx = useContext(Ctx);
-  if (!ctx) throw new Error("useAuth outside provider");
+  // При SSG/prerender Next иногда рендерит страницу без дерева layout —
+  // не валим build, отдаём «ещё грузимся».
+  if (!ctx) {
+    return {
+      user: null,
+      loading: true,
+      login: async () => {
+        throw new Error("useAuth outside provider");
+      },
+      logout: () => {},
+      refresh: async () => {},
+    };
+  }
   return ctx;
 }

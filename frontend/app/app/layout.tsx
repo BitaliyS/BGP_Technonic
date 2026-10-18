@@ -6,6 +6,8 @@ import { Sidebar } from "@/components/Sidebar";
 import { useAuth } from "@/lib/auth";
 import "@/components/workspace.css";
 
+export const dynamic = "force-dynamic";
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
