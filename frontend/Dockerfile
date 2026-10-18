@@ -1,29 +1,33 @@
 FROM node:20-alpine AS deps
-WORKDIR /app
+# Нельзя WORKDIR /app — совпадает с App Router (app/), Next путает маршруты:
+# на / попадает app/app (ChatWorkspace + «Загрузка») вместо логина.
+WORKDIR /frontend
 COPY package.json package-lock.json* ./
 RUN npm ci
 
 FROM node:20-alpine AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+WORKDIR /frontend
+COPY --from=deps /frontend/node_modules ./node_modules
 COPY . .
-# Браузер: same-origin /api. Next route → контейнер backend по DNS-имени.
 ARG NEXT_PUBLIC_API_URL=
 ARG BACKEND_URL=http://technonicol-ai-backend:8000
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV BACKEND_URL=$BACKEND_URL
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build
+RUN npm run build && \
+    echo "=== routes ===" && \
+    ls -la .next/server/app/ && \
+    (grep -oE 'Войти|Логин|Прикрепить|Загрузка' .next/server/app/page.js | sort | uniq -c || true)
 
 FROM node:20-alpine AS runner
-WORKDIR /app
+WORKDIR /frontend
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV BACKEND_URL=http://technonicol-ai-backend:8000
-COPY --from=builder /app/package.json ./
-COPY --from=builder /app/package-lock.json* ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
+COPY --from=builder /frontend/package.json ./
+COPY --from=builder /frontend/package-lock.json* ./
+COPY --from=builder /frontend/node_modules ./node_modules
+COPY --from=builder /frontend/.next ./.next
+COPY --from=builder /frontend/public ./public
 EXPOSE 3000
 CMD ["npm", "run", "start"]
