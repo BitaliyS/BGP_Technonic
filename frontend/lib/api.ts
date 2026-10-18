@@ -1,5 +1,10 @@
-// Пустая строка = same-origin /api (прод за Traefik → Next rewrite → backend)
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+// Пусто = same-origin /api (прод: Next route → backend).
+// Не используем ?? с дефолтом localhost: пустой ENV из Docker иначе не сработает,
+// а в прод-бандл попадёт localhost и браузер получит пустой экран / ошибки API.
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL === undefined
+    ? "http://localhost:8000"
+    : process.env.NEXT_PUBLIC_API_URL;
 
 export type User = {
   id: number;
