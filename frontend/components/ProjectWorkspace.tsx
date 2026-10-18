@@ -20,6 +20,7 @@ import {
   Project,
   streamChat,
 } from "@/lib/api";
+import { chatTitleFromDraft } from "@/lib/chatTitle";
 import { ChatInput, ChatSendPayload } from "./ChatInput";
 import { CopyMessageButton } from "./CopyMessageButton";
 import { DocumentEditor } from "./DocumentEditor";
@@ -145,17 +146,25 @@ export function ProjectWorkspace({ projectId }: Props) {
   };
 
   const onSend = async (payload: ChatSendPayload) => {
-    if (!chatId) {
-      setError("Нет активного чата — нажмите «Новый чат»");
-      return;
-    }
-
     setBusy(true);
     setStreaming("");
     setError(null);
 
-    let docId = activeDoc?.id;
     try {
+      let cid = chatId;
+      if (!cid) {
+        const chat = await api.projects.createChat(
+          projectId,
+          chatTitleFromDraft(payload.message),
+          modelId
+        );
+        setChats((prev) => [chat, ...prev]);
+        setChatId(chat.id);
+        setMessages([]);
+        cid = chat.id;
+      }
+
+      let docId = activeDoc?.id;
       if (payload.file) {
         const doc = await api.documents.upload(projectId, payload.file);
         setDocuments((d) => [doc, ...d]);
@@ -197,7 +206,7 @@ export function ProjectWorkspace({ projectId }: Props) {
       let acc = "";
       await streamChat(
         projectId,
-        chatId,
+        cid,
         {
           message: payload.message,
           intent: payload.intent,
@@ -473,7 +482,7 @@ export function ProjectWorkspace({ projectId }: Props) {
           models={models}
           modelId={modelId}
           onModelChange={setModelId}
-          disabled={busy || !chatId}
+          disabled={busy}
           hasDocument={Boolean(activeDoc)}
           onSend={onSend}
           onError={setError}

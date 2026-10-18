@@ -26,6 +26,7 @@ import {
   Project,
   streamChat,
 } from "@/lib/api";
+import { chatTitleFromDraft } from "@/lib/chatTitle";
 import { ChatInput, ChatSendPayload } from "./ChatInput";
 import { CopyMessageButton } from "./CopyMessageButton";
 import { DocPlate } from "./DocPlate";
@@ -228,10 +229,10 @@ export function ChatWorkspace() {
     }
   };
 
-  const createSoloChat = async () => {
+  const createSoloChat = async (title = "Новый чат") => {
     setError(null);
     try {
-      const { project: p, chat } = await api.projects.createSoloChat("Новый чат", modelId);
+      const { project: p, chat } = await api.projects.createSoloChat(title, modelId);
       await reloadTree();
       setProjectId(p.id);
       setChatId(chat.id);
@@ -239,8 +240,10 @@ export function ChatWorkspace() {
       setFindings([]);
       setShowDoc(false);
       setActiveDoc(null);
+      return { projectId: p.id, chatId: chat.id };
     } catch (e) {
       setError(e instanceof Error ? e.message : "Не удалось создать чат");
+      return null;
     }
   };
 
@@ -251,6 +254,34 @@ export function ChatWorkspace() {
       return;
     }
     await createSoloChat();
+  };
+
+  /** Нулевой старт / нет выбранного чата → создаём и сразу отдаём id для отправки. */
+  const ensureChatForSend = async (
+    draftTitle?: string
+  ): Promise<{ projectId: number; chatId: number } | null> => {
+    if (projectId && chatId) return { projectId, chatId };
+
+    const title = chatTitleFromDraft(draftTitle);
+
+    if (isProjectFolder && projectId) {
+      setError(null);
+      try {
+        const chat = await api.projects.createChat(projectId, title, modelId);
+        await reloadTree();
+        setChatId(chat.id);
+        setMessages([]);
+        setFindings([]);
+        setShowDoc(false);
+        setActiveDoc(null);
+        return { projectId, chatId: chat.id };
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Не удалось создать чат");
+        return null;
+      }
+    }
+
+    return createSoloChat(title);
   };
 
   const commitRename = async () => {
@@ -307,19 +338,21 @@ export function ChatWorkspace() {
   };
 
   const runSend = async (payload: ChatSendPayload) => {
-    if (!projectId || !chatId) {
-      setError("Выберите проект и чат");
-      return;
-    }
-
     setBusy(true);
     setStreaming("");
     setError(null);
 
-    let docId = activeDoc?.id || documents[0]?.id;
     try {
+      const ids = await ensureChatForSend(payload.message);
+      if (!ids) {
+        setBusy(false);
+        return;
+      }
+      const { projectId: pid, chatId: cid } = ids;
+
+      let docId = activeDoc?.id || documents[0]?.id;
       if (payload.file) {
-        const doc = await api.documents.upload(projectId, payload.file);
+        const doc = await api.documents.upload(pid, payload.file);
         setActiveDoc(doc);
         setFindings([]);
         docId = doc.id;
@@ -357,8 +390,8 @@ export function ChatWorkspace() {
 
       let acc = "";
       await streamChat(
-        projectId,
-        chatId,
+        pid,
+        cid,
         {
           message: payload.message,
           intent: payload.intent,
@@ -822,8 +855,8 @@ export function ChatWorkspace() {
         >
           {!chatId && (
             <div className="mx-auto max-w-lg pt-12 text-center text-sm text-tn-muted">
-              Слева нажмите на чат (например «Новый чат»), чтобы открыть его. Затем загрузите
-              договор (.docx) и нажмите «Проверить».
+              Напишите запрос или прикрепите договор (.docx) и нажмите «Проверить» — чат
+              создастся автоматически.
             </div>
           )}
           {messages.map((m) => {
@@ -887,7 +920,7 @@ export function ChatWorkspace() {
           models={models}
           modelId={modelId}
           onModelChange={setModelId}
-          disabled={busy || !chatId}
+          disabled={busy}
           hasDocument={Boolean(activeDoc || documents[0])}
           onSend={runSend}
           onError={setError}
