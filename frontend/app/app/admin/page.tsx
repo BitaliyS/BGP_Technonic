@@ -540,7 +540,7 @@ export default function AdminPage() {
                     disabled={promptSaving}
                     onClick={async () => {
                       setPromptSaving(true);
-                      setError(null);
+                      setError("");
                       setPromptSaved(null);
                       try {
                         await api.prompts.update(selected.id, draft, note || "update");
