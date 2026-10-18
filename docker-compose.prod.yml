@@ -43,18 +43,21 @@ services:
       db:
         condition: service_healthy
     networks:
-      - tn_net
+      tn_net:
+        aliases:
+          - backend
+          - technonicol-ai-backend
 
   frontend:
     build:
       context: ./frontend
       args:
         NEXT_PUBLIC_API_URL: ""
-        BACKEND_URL: http://backend:8000
+        BACKEND_URL: http://technonicol-ai-backend:8000
     container_name: technonicol-ai-frontend
     restart: unless-stopped
     environment:
-      BACKEND_URL: http://backend:8000
+      BACKEND_URL: http://technonicol-ai-backend:8000
     depends_on:
       - backend
     networks:
