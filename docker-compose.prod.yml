@@ -1,9 +1,7 @@
-# Прод рядом с уже живущими сервисами (Hermes, legaltech-radar, Traefik).
-# Не трогает чужие контейнеры/сети/порты: только Host(app.legaltech-radar.tech).
+# Прод рядом с Hermes / legaltech-radar / Traefik.
+# Только Host(app.legaltech-radar.tech) — чужие стеки не трогаем.
 #
 #   docker compose -p technonicol-ai -f docker-compose.prod.yml --env-file .env.prod up -d --build
-#
-# Имя проекта (-p technonicol-ai) важно — не пересечься с hermes-agent-htrr / legaltech-radar.
 
 name: technonicol-ai
 
@@ -12,7 +10,6 @@ services:
     image: postgres:16-alpine
     container_name: technonicol-ai-db
     restart: unless-stopped
-    # Только localhost хоста — чужим стекам не светим
     ports:
       - "127.0.0.1:5436:5432"
     environment:
@@ -59,8 +56,8 @@ services:
       - traefik.http.routers.technonicol-api-http.rule=Host(`app.legaltech-radar.tech`) && PathPrefix(`/api`)
       - traefik.http.routers.technonicol-api-http.entrypoints=web
       - traefik.http.routers.technonicol-api-http.middlewares=technonicol-https-redirect
+      - traefik.http.routers.technonicol-api-http.service=technonicol-api
       - traefik.http.routers.technonicol-api-http.priority=100
-      - traefik.http.middlewares.technonicol-https-redirect.redirectscheme.scheme=https
 
   frontend:
     build:
@@ -76,6 +73,9 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=technonicol-ai_tn_net
+      # middleware живёт на frontend — не пропадает, когда backend рестартит
+      - traefik.http.middlewares.technonicol-https-redirect.redirectscheme.scheme=https
+      - traefik.http.middlewares.technonicol-https-redirect.redirectscheme.permanent=true
       - traefik.http.routers.technonicol-web.rule=Host(`app.legaltech-radar.tech`)
       - traefik.http.routers.technonicol-web.entrypoints=websecure
       - traefik.http.routers.technonicol-web.tls=true
