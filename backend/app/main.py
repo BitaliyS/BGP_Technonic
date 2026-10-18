@@ -40,6 +40,7 @@ def _ensure_sqlite_columns(sync_conn) -> None:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    # DDL отдельной транзакцией — надёжнее с asyncpg/Postgres
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         await conn.run_sync(_ensure_sqlite_columns)
