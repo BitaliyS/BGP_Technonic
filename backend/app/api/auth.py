@@ -17,7 +17,8 @@ async def login(body: LoginIn, db: AsyncSession = Depends(get_db)):
     user = result.scalar_one_or_none()
     if not user or not verify_password(body.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Неверный email или пароль")
-    token = create_access_token(str(user.id), {"role": user.role.value})
+    role = user.role.value if hasattr(user.role, "value") else user.role
+    token = create_access_token(str(user.id), {"role": role})
     return TokenOut(access_token=token)
 
 

@@ -1,7 +1,9 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from app.api import auth, chat, check_types, documents, findings, projects, prompts, stats, users
 from app.core.config import settings
@@ -11,6 +13,8 @@ from app.services.seed import ensure_primary_user, seed_check_types, seed_if_emp
 
 # Import models so metadata is registered
 import app.models  # noqa: F401
+
+logger = logging.getLogger("uvicorn.error")
 
 
 def _ensure_sqlite_columns(sync_conn) -> None:
@@ -38,12 +42,43 @@ def _ensure_sqlite_columns(sync_conn) -> None:
         pass
 
 
+def _drop_stale_pg_enums(sync_conn) -> None:
+    """Убирает старый PG ENUM user_role, если остался от прошлых миграций."""
+    try:
+        sync_conn.exec_driver_sql("DROP TYPE IF EXISTS user_role CASCADE")
+    except Exception:
+        pass
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    # DDL отдельной транзакцией — надёжнее с asyncpg/Postgres
+    db_url = settings.database_url
+    safe = db_url.split("@")[-1] if "@" in db_url else db_url
+    logger.info("DB init → %s | metadata tables=%s", safe, list(Base.metadata.tables))
+
+    is_pg = settings.database_url.startswith("postgresql")
     async with engine.begin() as conn:
+        if is_pg:
+            await conn.run_sync(_drop_stale_pg_enums)
         await conn.run_sync(Base.metadata.create_all)
         await conn.run_sync(_ensure_sqlite_columns)
+        if is_pg:
+            existing = (
+                await conn.execute(
+                    text(
+                        "SELECT tablename FROM pg_catalog.pg_tables "
+                        "WHERE schemaname = 'public' ORDER BY 1"
+                    )
+                )
+            ).fetchall()
+            tables = [r[0] for r in existing]
+            logger.info("Postgres public tables: %s", tables)
+            if "users" not in tables:
+                raise RuntimeError(
+                    f"create_all did not create users; tables={tables}; "
+                    f"metadata={list(Base.metadata.tables)}"
+                )
+
     async with SessionLocal() as db:
         await seed_if_empty(db)
         await ensure_primary_user(db)

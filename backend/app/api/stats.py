@@ -26,7 +26,9 @@ async def team_stats(
     month_ago = now - timedelta(days=30)
 
     lawyers = (
-        await db.execute(select(User).where(User.role == UserRole.lawyer, User.is_active == True))  # noqa: E712
+        await db.execute(
+            select(User).where(User.role == UserRole.lawyer.value, User.is_active == True)  # noqa: E712
+        )
     ).scalars().all()
 
     checks_q = select(CheckRun)

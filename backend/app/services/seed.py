@@ -60,7 +60,7 @@ DEFAULT_CHECK_TYPES = [
 ]
 
 DEMO_USERS = [
-    ("A_Shorin", "А. Шорин", "BGP_Nicol_legaltech", UserRole.admin),
+    ("A_Shorin", "А. Шорин", "BGP_Nicol_legaltech", UserRole.admin.value),
 ]
 
 

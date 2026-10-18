@@ -31,7 +31,9 @@ async def get_current_user(
 
 def require_roles(*roles: UserRole):
     async def _checker(user: User = Depends(get_current_user)) -> User:
-        if user.role not in roles and user.role != UserRole.admin:
+        role = user.role.value if hasattr(user.role, "value") else str(user.role)
+        allowed = {r.value for r in roles} | {UserRole.admin.value}
+        if role not in allowed:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
         return user
 

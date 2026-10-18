@@ -33,7 +33,7 @@ async def create_user(
         email=body.email,
         full_name=body.full_name,
         hashed_password=hash_password(body.password),
-        role=body.role,
+        role=body.role.value if hasattr(body.role, "value") else str(body.role),
     )
     db.add(user)
     await db.commit()
@@ -54,7 +54,7 @@ async def update_user(
     if body.full_name is not None:
         user.full_name = body.full_name
     if body.role is not None:
-        user.role = body.role
+        user.role = body.role.value if hasattr(body.role, "value") else str(body.role)
     if body.is_active is not None:
         user.is_active = body.is_active
     if body.password:
